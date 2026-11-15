@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Compare lunar south-pole landing sites and dates: Sun and Earth positions vs. the horizon for power and direct-to-Earth comms.">
+<title>Lunar Landing Site Navigator</title>
+<style>
+:root{--bg:#f4f5f8;--fg:#14171f;--mut:#5b6272;--card:#fff;--line:#d5d9e2;--sun:#e8a100;--earth:#2a7de1;--both:#1fa66a;--dark:#2b2f3a;--sky:#e9edf5;--gnd:#c7ccd8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b0e16;--fg:#e8ebf3;--mut:#8f98ad;--card:#141927;--line:#262d40;--sun:#ffc93c;--earth:#4da3ff;--both:#35d08a;--dark:#1b2030;--sky:#0f1424;--gnd:#2a3047;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b0e16;--fg:#e8ebf3;--mut:#8f98ad;--card:#141927;--line:#262d40;--sun:#ffc93c;--earth:#4da3ff;--both:#35d08a;--dark:#1b2030;--sky:#0f1424;--gnd:#2a3047;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:0 0 2px}p.sub{margin:0 0 14px;color:var(--mut)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:0 0 10px}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:4px}
+input,button{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 9px}
+input[type=range]{padding:0;width:100%}
+button{cursor:pointer}button:hover{border-color:var(--earth)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:99px;padding:4px 10px;cursor:pointer;font-size:13px;color:var(--fg)}
+.chip input{padding:0;margin:0}
+canvas{width:100%;display:block}
+.wrap{overflow-x:auto}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--mut);margin-top:8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-weight:600;font-size:12px}
+tr.act td{background:color-mix(in srgb,var(--earth) 12%,transparent)}
+tr[data-n]{cursor:pointer}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.ro{font-size:15px}.ro b{font-weight:650}
+.tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:600;color:#fff}
+.note{font-size:12px;color:var(--mut);margin-top:8px}
+
+#map{max-width:440px;margin:0 auto}
+.ck{list-style:none;padding:0;margin:8px 0}
+.ck li{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);align-items:flex-start}
+.ck .dot{width:10px;height:10px;border-radius:50%;margin-top:5px;flex:none}
+.ck small{display:block;color:var(--mut)}
+.bar{height:8px;background:var(--dark);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--both);transition:width .3s}
+details{margin-top:10px}summary{cursor:pointer;font-weight:600}
+details ol{padding-left:18px;margin:8px 0 0}details li{margin-bottom:6px}
+.veh{font-size:12px;margin-top:8px}.veh div{padding:2px 0}
+</style></head><body><main>
+<h1>🌑 Lunar Landing Site Navigator</h1>
+<p class="sub">Compare south-polar sites and dates: when the Sun powers you, and when Earth is in view for direct-to-Earth comms.</p>
+
+<div class="card"><h2>Mission window</h2>
+<div class="row">
+<label>Start date (UTC)<input type="date" id="start"></label>
+<label style="min-width:170px">Duration: <b id="dv">30</b> days<input type="range" id="days" min="7" max="120" value="30"></label>
+<label style="min-width:190px">Horizon mask (terrain): <b id="mv">1.0</b>°<input type="range" id="mask" min="0" max="8" step="0.5" value="1"></label>
+</div>
+<div class="chips" id="chips"></div>
+<div class="row" style="margin-top:10px">
+<label>Custom lat °<input type="number" id="clat" value="-86.5" step="0.1" min="-90" max="90" style="width:90px"></label>
+<label>Custom lon °E<input type="number" id="clon" value="45" step="0.1" min="-180" max="360" style="width:90px"></label>
+<button id="add">Add custom site</button>
+</div></div>
+
+<div class="card"><h2>Timeline · click to inspect a moment</h2>
+<div class="wrap"><canvas id="tl"></canvas></div>
+<div class="legend"><span><i style="background:var(--both)"></i>Sun + Earth (power &amp; comms)</span><span><i style="background:var(--sun)"></i>Sun only</span><span><i style="background:var(--earth)"></i>Earth only</span><span><i style="background:var(--dark)"></i>Dark &amp; no link</span></div></div>
+
+<div class="grid">
+<div class="card"><h2>Sky at <span id="when"></span></h2>
+<canvas id="sky"></canvas>
+<div class="row" style="margin-top:8px;flex-wrap:nowrap"><button id="play">▶ Play</button><input type="range" id="t" min="0" max="719" value="0"></div>
+<div class="ro" id="ro" style="margin-top:8px"></div></div>
+<div class="card"><h2>Site comparison</h2><div class="wrap"><table id="tb"></table></div>
+<div class="note" id="best"></div></div>
+</div>
+<div class="grid">
+<div class="card"><h2>South pole map · <span id="mapwhen"></span></h2>
+<canvas id="map"></canvas>
+<div class="legend"><span>● landed</span><span style="color:#e5484d">✕ crashed</span><span style="color:var(--earth)">◇ planned</span><span>■ candidate site</span><span>dark = night side at the selected time</span></div>
+<div id="veh" class="veh"></div></div>
+<div class="card"><h2>Landing readiness · <span id="rsite"></span></h2>
+<div class="bar"><i id="pb"></i></div><div id="pt" class="note" style="margin:6px 0 0"></div>
+<ul id="ck" class="ck"></ul><div id="win"></div>
+<details><summary>Path to touchdown: how a mission clears every challenge</summary>
+<ol>
+<li><b>Pick the region:</b> long illumination, ice access, gentle slopes (Shackleton rim, Malapert, Nobile, de Gerlache).</li>
+<li><b>Pick the date window:</b> use the timeline to find stretches with Sun and Earth both up. Launch dates follow from this.</li>
+<li><b>Transfer and orbit:</b> arrive when lighting and relay geometry match the landing window; plan a relay or orbiter for comms when Earth is low.</li>
+<li><b>Precision descent:</b> hazard-relative navigation to land within ~100 m on slopes under ~10°.</li>
+<li><b>Commission fast:</b> use the first joint Sun + Earth days for deployment, checkout and uplink.</li>
+<li><b>Survive the night:</b> size batteries or heaters for the longest dark gap, or move to a better-lit rim.</li>
+</ol></details></div>
+</div>
+<div class="note">Model: simplified analytic Sun/Earth ephemeris in the Moon-fixed frame (phase, libration, solar declination), roughly ±1–2° and a few hours. Site coordinates are approximate; add your own. Horizon mask is a uniform terrain angle. Use SPICE or JPL Horizons for flight-grade work.</div>
+</main>
+<script>
+const D=Math.PI/180,H=3600e3,DAY=864e5;
+const SITES=[
+{n:"Shackleton rim",lat:-89.7,lon:130},{n:"Malapert massif",lat:-85.9,lon:0.1},{n:"Nobile rim",lat:-85.4,lon:31.1},
+{n:"de Gerlache rim",lat:-88.5,lon:273},{n:"Haworth rim",lat:-87.4,lon:-5},{n:"Cabeus",lat:-84.9,lon:-35.5},
+{n:"Mons Mouton",lat:-84.8,lon:29.2},{n:"Chandrayaan-3",lat:-69.4,lon:32.3}];
+let sel=new Set([0,1,2,3,4]),act=0,N=720,T=0,data={},timer=null;
+const $=id=>document.getElementById(id);
+const NM=Date.UTC(2000,0,6,18,14),EC=Date.UTC(2000,0,21,4,44),PER=Date.UTC(2000,0,19,12);
+const vec=(b,l)=>{b*=D;l*=D;return[Math.cos(b)*Math.cos(l),Math.cos(b)*Math.sin(l),Math.sin(b)]};
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+function sunV(ms){const f=(((ms-NM)/DAY/29.530588861)%1+1)%1;return vec(-1.54*Math.sin(2*Math.PI*(ms-EC)/(346.62*DAY)),180-360*f)}
+function earV(ms){const M=2*Math.PI*(ms-PER)/DAY/27.55455,u=2*Math.PI*(ms-EC)/DAY/27.21222;return vec(-6.7*Math.sin(u),-7.6*Math.sin(M))}
+function look(lat,lon,v){const p=lat*D,l=lon*D,u=[Math.cos(p)*Math.cos(l),Math.cos(p)*Math.sin(l),Math.sin(p)],
+e=[-Math.sin(l),Math.cos(l),0],n=[-Math.sin(p)*Math.cos(l),-Math.sin(p)*Math.sin(l),Math.cos(p)];
+return{el:Math.asin(Math.max(-1,Math.min(1,dot(v,u))))/D,az:(Math.atan2(dot(v,e),dot(v,n))/D+360)%360}}
+const startMs=()=>new Date($("start").value+"T00:00:00Z").getTime();
+function compute(){const s=startMs(),mk=+$("mask").value;N=$("days").value*24;
+const sv=[],ev=[];for(let i=0;i<=N;i++){sv.push(sunV(s+i*H));ev.push(earV(s+i*H))}
+data={};SITES.forEach((st,k)=>{const a={se:[],sa:[],ee:[],ea:[],st:[]};
+for(let i=0;i<=N;i++){const x=look(st.lat,st.lon,sv[i]),y=look(st.lat,st.lon,ev[i]);
+a.se.push(x.el);a.sa.push(x.az);a.ee.push(y.el);a.ea.push(y.az);a.st.push((x.el>mk?1:0)+(y.el>mk?2:0))}
+const run=m=>{let b=0,c=0;a.st.forEach(v=>{if(!(v&m)){c++;b=Math.max(b,c)}else c=0});return b};
+const pc=f=>100*a.st.filter(f).length/(N+1);
+a.sun=pc(v=>v&1);a.ear=pc(v=>v&2);a.both=pc(v=>v==3);a.dark=run(1);a.nolink=run(2);data[k]=a});
+$("t").max=N;T=Math.min(T,N)}
+const col=n=>getComputedStyle(document.documentElement).getPropertyValue("--"+n).trim();
+function cv(c,h){const r=devicePixelRatio||1,w=c.clientWidth;c.width=w*r;c.height=h*r;c.style.height=h+"px";const g=c.getContext("2d");g.scale(r,r);return[g,w]}
+const SC=()=>({0:col("dark"),1:col("sun"),2:col("earth"),3:col("both")});
+function tl(){const ids=[...sel],rowH=26,L=120,top=22,c=$("tl");c.style.minWidth="640px";
+const[g,W]=cv(c,top+ids.length*rowH+6),C=SC(),pw=W-L-6;g.font="12px system-ui";g.textBaseline="middle";
+if(!ids.length){g.fillStyle=col("mut");g.fillText("Select at least one site",10,14);return}
+const days=N/24,stepD=days>60?10:days>30?5:days>14?2:1;
+for(let d=0;d<=days;d+=stepD){const x=L+pw*d/days;g.fillStyle=col("mut");g.textAlign="center";
+g.fillText(new Date(startMs()+d*DAY).toISOString().slice(5,10),x,9);g.fillStyle=col("line");g.fillRect(x,16,1,ids.length*rowH)}
+ids.forEach((k,r)=>{const y=top+r*rowH,a=data[k];g.textAlign="left";g.fillStyle=k==act?col("fg"):col("mut");g.font=(k==act?"600 ":"")+"12px system-ui";g.fillText(SITES[k].n,4,y+10);
+const bw=pw/(N+1);for(let i=0;i<=N;i++){g.fillStyle=C[a.st[i]];g.fillRect(L+i*bw,y,Math.ceil(bw)+.5,rowH-6)}
+if(k==act){g.strokeStyle=col("fg");g.strokeRect(L-.5,y-.5,pw+1,rowH-5)}});
+const x=L+pw*T/(N+1);g.fillStyle=col("fg");g.fillRect(x-1,14,2,ids.length*rowH+4);c._m={L,pw,top,rowH,ids}}
+function sky(){const c=$("sky"),[g,W]=cv(c,270),a=data[act];if(!a)return;const st=SITES[act],mk=+$("mask").value;
+let mx=15;for(let i=0;i<=N;i++)mx=Math.max(mx,a.se[i]+4,a.ee[i]+4);mx=Math.min(mx,90);const mn=-8,P=26,hh=270-P*2,X=az=>P+(W-P*2)*az/360,Y=el=>P+hh*(mx-el)/(mx-mn);
+g.fillStyle=col("sky");g.fillRect(P,P,W-P*2,hh);g.fillStyle=col("gnd");g.fillRect(P,Y(0),W-P*2,Y(mn)-Y(0));
+g.fillStyle=col("mut");g.globalAlpha=.35;g.fillRect(P,Y(mk),W-P*2,Y(0)-Y(mk));g.globalAlpha=1;
+g.strokeStyle=col("fg");g.beginPath();g.moveTo(P,Y(0));g.lineTo(W-P,Y(0));g.stroke();
+g.font="11px system-ui";g.fillStyle=col("mut");g.textAlign="center";
+[["N",0],["E",90],["S",180],["W",270],["N",360]].forEach(([t,z])=>g.fillText(t,X(z),270-10));
+g.textAlign="right";for(let e=0;e<=mx;e+=(mx>40?20:5))g.fillText(e+"°",P-3,Y(e));
+const trail=(el,az,cl)=>{g.fillStyle=cl;g.globalAlpha=.35;for(let i=0;i<=N;i+=2){if(el[i]>-8){g.fillRect(X(az[i])-1,Y(el[i])-1,2,2)}}g.globalAlpha=1};
+trail(a.se,a.sa,col("sun"));trail(a.ee,a.ea,col("earth"));
+const disc=(el,az,cl,r,t)=>{const x=X(az[T]),y=Y(Math.max(el[T],mn));g.fillStyle=cl;g.globalAlpha=el[T]>mk?1:.4;g.beginPath();g.arc(x,y,r,0,7);g.fill();g.globalAlpha=1;g.fillStyle=col("fg");g.textAlign="center";g.fillText(t,x,y-r-5)};
+disc(a.se,a.sa,col("sun"),9,"Sun");disc(a.ee,a.ea,col("earth"),7,"Earth");
+g.textAlign="left";g.fillStyle=col("mut");g.fillText("Local horizon view · dots = path over the window · shaded = terrain mask",P+4,P-10)}
+const fmt=h=>h>=48?(h/24).toFixed(1)+" d":h+" h";
+function info(){const a=data[act],s=a.st[T],mk=+$("mask").value;
+$("when").textContent=SITES[act].n+" · "+new Date(startMs()+T*H).toISOString().slice(0,16).replace("T"," ")+" UTC";
+const tag=(t,c)=>`<span class="tag" style="background:${c}">${t}</span>`;
+$("ro").innerHTML=`${tag(s&1?"Power: Sun up":"Power: dark",s&1?"#b57d00":"#555")} ${tag(s&2?"Comms: Earth in view":"Comms: no line of sight",s&2?"#2a7de1":"#555")}<br>
+☀ Sun elevation <b>${a.se[T].toFixed(1)}°</b> az ${a.sa[T].toFixed(0)}° · 🌍 Earth elevation <b>${a.ee[T].toFixed(1)}°</b> az ${a.ea[T].toFixed(0)}°`}
+function table(){const ids=[...sel].sort((a,b)=>data[b].both-data[a].both);
+$("tb").innerHTML=`<tr><th>Site</th><th>Sun %</th><th>Earth %</th><th>Both %</th><th>Longest dark</th><th>Longest no-link</th></tr>`+
+ids.map(k=>{const a=data[k];return`<tr data-n="${k}" class="${k==act?"act":""}"><td>${SITES[k].n}<br><span style="color:var(--mut);font-size:11px">${SITES[k].lat}°, ${SITES[k].lon}°E</span></td><td>${a.sun.toFixed(0)}</td><td>${a.ear.toFixed(0)}</td><td><b>${a.both.toFixed(0)}</b></td><td>${fmt(a.dark)}</td><td>${fmt(a.nolink)}</td></tr>`}).join("");
+const b=ids[0];$("best").textContent=b==null?"":`Best combined power + comms in this window: ${SITES[b].n} (${data[b].both.toFixed(0)}% of the time). “Dark” = Sun below the mask; “no-link” = Earth below the mask.`}
+function chips(){$("chips").innerHTML=SITES.map((s,k)=>`<label class="chip"><input type="checkbox" data-k="${k}" ${sel.has(k)?"checked":""}>${s.n}</label>`).join("")}
+function draw(){if(!sel.has(act))act=[...sel][0]??act;tl();sky();info();table();map();ready();$("t").value=T}
+function full(){compute();draw()}
+$("chips").onchange=e=>{const k=+e.target.dataset.k;e.target.checked?sel.add(k):sel.delete(k);if(!sel.size){sel.add(k);chips()}draw()};
+["start","days","mask"].forEach(i=>$(i).oninput=()=>{$("dv").textContent=$("days").value;$("mv").textContent=(+$("mask").value).toFixed(1);full()});
+$("t").oninput=e=>{T=+e.target.value;draw()};
+$("add").onclick=()=>{const la=+$("clat").value,lo=+$("clon").value;if(isNaN(la)||isNaN(lo)||Math.abs(la)>90)return;SITES.push({n:`Custom ${la}°, ${lo}°`,lat:la,lon:lo});sel.add(SITES.length-1);act=SITES.length-1;chips();full()};
+$("tb").onclick=e=>{const r=e.target.closest("tr[data-n]");if(r){act=+r.dataset.n;draw()}};
+function pick(e){const c=$("tl"),m=c._m;if(!m)return;const b=c.getBoundingClientRect(),x=e.clientX-b.left,y=e.clientY-b.top;
+T=Math.max(0,Math.min(N,Math.round((x-m.L)/m.pw*(N+1))));const r=Math.floor((y-m.top)/m.rowH);if(r>=0&&r<m.ids.length)act=m.ids[r];draw()}
+let dn=false;$("tl").onpointerdown=e=>{dn=true;pick(e)};$("tl").onpointermove=e=>{if(dn)pick(e)};addEventListener("pointerup",()=>dn=false);
+$("play").onclick=()=>{if(timer){clearInterval(timer);timer=null;$("play").textContent="▶ Play"}else{$("play").textContent="⏸ Pause";timer=setInterval(()=>{T=(T+2)%(N+1);draw()},70)}};
+addEventListener("resize",draw);matchMedia("(prefers-color-scheme:dark)").addEventListener("change",draw);
+
+
+/* ---- Vehicles (approximate positions; planned entries may have slipped) ---- */
+const VEH=[
+{n:"Chandrayaan-3 Vikram + Pragyan",lat:-69.37,lon:32.32,st:"landed",d:"landed 2023-08-23; mission concluded"},
+{n:"Chandrayaan-2 Vikram",lat:-70.88,lon:22.78,st:"crashed",d:"lost in descent 2019-09-07"},
+{n:"Luna 25",lat:-57.86,lon:61.36,st:"crashed",d:"crashed 2023-08-19"},
+{n:"IM-2 Athena",lat:-84.8,lon:29.2,st:"landed",d:"landed 2025-03-06, toppled; ended early"},
+{n:"Chang’e-7 lander + rover + hopper",lat:-88.8,lon:123.4,st:"planned",d:"Shackleton rim; launch postponed Aug 2026, no new date"},
+{n:"Blue Moon MK1 pathfinder",lat:-89.4,lon:222.7,st:"planned",d:"Shackleton connecting ridge area; check current status"},
+{n:"Astrobotic Griffin-1 + FLIP rover",lat:-85.4,lon:31.1,st:"planned",d:"Nobile region; check current status"}];
+const manual={slope:false,nav:false,thermal:false};
+const RMAX=Math.tan(17.5*D);
+function map(){const c=$("map"),[g,W]=cv(c,c.clientWidth),cx=W/2,R=W/2-16,
+rho=l=>Math.tan((90+l)*D/2)/RMAX*R,xy=(la,lo)=>[cx+rho(la)*Math.sin(lo*D),cx-rho(la)*Math.cos(lo*D)];
+const ms=startMs()+T*H,sv=sunV(ms),mk=+$("mask").value;
+$("mapwhen").textContent=new Date(ms).toISOString().slice(0,16).replace("T"," ")+" UTC";
+g.save();g.beginPath();g.arc(cx,cx,R,0,7);g.clip();g.fillStyle=col("gnd");g.fillRect(0,0,W,W);
+for(let x=0;x<W;x+=5)for(let y=0;y<W;y+=5){const dx=x+2.5-cx,dy=y+2.5-cx;if(Math.hypot(dx,dy)>R)continue;
+const la=2*Math.atan(Math.hypot(dx,dy)/R*RMAX)/D-90,lo=Math.atan2(dx,-dy)/D;
+g.fillStyle=look(la,lo,sv).el<mk?"rgba(0,0,0,.5)":"rgba(255,215,100,.2)";g.fillRect(x,y,5,5)}
+g.restore();g.strokeStyle=col("line");g.fillStyle=col("mut");g.font="10px system-ui";g.textAlign="left";
+[-60,-70,-80,-88].forEach(l=>{g.beginPath();g.arc(cx,cx,rho(l),0,7);g.stroke();g.fillText(l+"°",cx+3,cx-rho(l)+10)});
+g.beginPath();g.arc(cx,cx,R,0,7);g.stroke();g.textAlign="center";
+for(let lo=0;lo<360;lo+=30){const[a,b]=xy(-55,lo),[x2,y2]=xy(-89.5,lo);g.beginPath();g.moveTo(a,b);g.lineTo(x2,y2);g.globalAlpha=.4;g.stroke();g.globalAlpha=1;
+const[tx,ty]=[cx+(R+9)*Math.sin(lo*D),cx-(R+9)*Math.cos(lo*D)];g.fillText(lo+"°E",tx,ty+3)}
+SITES.forEach((s,k)=>{if(s.lat>-55)return;const[x,y]=xy(s.lat,s.lon);g.fillStyle=col("sun");g.fillRect(x-3,y-3,6,6);
+if(k==act){g.strokeStyle=col("fg");g.lineWidth=2;g.strokeRect(x-6,y-6,12,12);g.lineWidth=1;g.fillStyle=col("fg");g.textAlign="left";g.font="600 11px system-ui";g.fillText(s.n,x+9,y+14)}});
+g.font="10px system-ui";
+VEH.forEach((v,i)=>{if(v.lat>-55)return;const[x,y]=xy(v.lat,v.lon);g.lineWidth=2;
+if(v.st=="crashed"){g.strokeStyle="#e5484d";g.beginPath();g.moveTo(x-4,y-4);g.lineTo(x+4,y+4);g.moveTo(x+4,y-4);g.lineTo(x-4,y+4);g.stroke()}
+else if(v.st=="planned"){g.strokeStyle=col("earth");g.beginPath();g.moveTo(x,y-5);g.lineTo(x+5,y);g.lineTo(x,y+5);g.lineTo(x-5,y);g.closePath();g.stroke()}
+else{g.fillStyle=col("both");g.beginPath();g.arc(x,y,4.5,0,7);g.fill()}
+g.lineWidth=1;g.fillStyle=col("fg");g.textAlign="left";g.fillText(i+1,x+6,y-6)});
+$("veh").innerHTML=VEH.map((v,i)=>`<div><b>${i+1}</b> ${v.n} <span style="color:var(--mut)">· ${v.lat}°, ${v.lon}°E · ${v.d}</span></div>`).join("")+
+`<div style="color:var(--mut);margin-top:4px">Positions are approximate; planned missions can slip. Dark shading ignores terrain, so peaks and crater rims can still be lit.</div>`}
+function bestRun(a){let b=0,bs=-1,c=0;for(let i=0;i<=N;i++){if(a.st[i]==3){c++;if(c>b){b=c;bs=i-c+1}}else c=0}return[b,bs]}
+function ready(){const a=data[act];if(!a)return;const[run,rs]=bestRun(a),lv=(v,p,w)=>v>=p?2:v>=w?1:0,lo=(v,p,w)=>v<=p?2:v<=w?1:0;
+const auto=[
+["Power: Sun above the horizon mask",lv(a.sun,50,20),`${a.sun.toFixed(0)}% of the window`],
+["Night survival",lo(a.dark,72,168),`longest dark gap ${fmt(a.dark)} (about 3 days or less is workable with batteries; illustrative)`],
+["Direct-to-Earth comms",lv(a.ear,50,20),`${a.ear.toFixed(0)}% of the window`],
+["Comms outages",lo(a.nolink,72,168),`longest no-link gap ${fmt(a.nolink)}`],
+["Landing + commissioning window",lv(run,48,24),run?`${fmt(run)} of Sun + Earth from ${new Date(startMs()+rs*H).toISOString().slice(0,16).replace("T"," ")} UTC`:"no joint Sun + Earth window"]];
+const man=[["slope","Slope and hazards","verify slopes under ~10° and boulder density with LOLA DEMs / LROC"],["nav","Precision navigation","hazard-relative navigation for a ~100 m landing ellipse"],["thermal","Thermal and cold-trap access","plan heaters, survive-the-night kit, and a safe route to shadowed ice"]];
+const C=["#e5484d",col("sun"),col("both")];let n=0;
+let h=auto.map(x=>{if(x[1]==2)n++;return`<li><i class="dot" style="background:${C[x[1]]}"></i><div>${x[0]}<small>${x[2]}</small></div></li>`}).join("");
+h+=man.map(m=>{if(manual[m[0]])n++;return`<li><input type="checkbox" data-m="${m[0]}" ${manual[m[0]]?"checked":""}><div>${m[1]} <small>${m[2]} (not computed here; tick when verified)</small></div></li>`}).join("");
+$("ck").innerHTML=h;$("rsite").textContent=SITES[act].n;$("pb").style.width=n/8*100+"%";
+$("pt").textContent=n==8?"All 8 challenges cleared: this site and window are a go for planning.":`${n} of 8 challenges cleared. Red or amber items need a different site, date or design.`;
+$("win").innerHTML=run?`<button id="jw" style="margin-top:8px">Jump to best landing window</button>`:"";
+if(run)$("jw").onclick=()=>{T=rs;draw()}}
+$("ck").onchange=e=>{const m=e.target.dataset.m;if(m){manual[m]=e.target.checked;ready()}};
+$("start").value=new Date().toISOString().slice(0,10);chips();full();
+</script></body></html>
